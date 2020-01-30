@@ -7,6 +7,9 @@
 
 package frc.robot;
 
+import static frc.robot.FlyWheelShooter.GEARING;
+import static frc.robot.FlyWheelShooter.RPM_TO_CP100MS;
+
 import com.ctre.phoenix.motorcontrol.ControlMode;
 import com.ctre.phoenix.motorcontrol.can.TalonFX;
 
@@ -53,8 +56,8 @@ public class Robot extends IterativeRobot {
   double prev_pidf_update = 0;
 
   /**
-   * This function is run when the robot is first started up and should be
-   * used for any initialization code.
+   * This function is run when the robot is first started up and should be used
+   * for any initialization code.
    */
   @Override
   public void robotInit() {
@@ -68,7 +71,6 @@ public class Robot extends IterativeRobot {
 
     flyWheel = new FlyWheelShooter();
     joystick1 = new Joystick(0);
-
 
     motorFrontLeft = new Talon(1);
     motorFrontRight = new Talon(3);
@@ -85,17 +87,19 @@ public class Robot extends IterativeRobot {
     SmartDashboard.putNumber("flywheel_target", flyWheelTarget);
 
     logger.createLogStream("ShooterTest");
+    logger.createLogStream("ShooterSpeedFromPower"+Double.toString(SmartDashboard.getNumber("Shooter Power", 0.0)));
 
     SmartDashboard.putNumber("Shooter Power", 0.8);
   }
 
   /**
-   * This function is called every robot packet, no matter the mode. Use
-   * this for items like diagnostics that you want ran during disabled,
-   * autonomous, teleoperated and test.
+   * This function is called every robot packet, no matter the mode. Use this for
+   * items like diagnostics that you want ran during disabled, autonomous,
+   * teleoperated and test.
    *
-   * <p>This runs after the mode specific periodic functions, but before
-   * LiveWindow and SmartDashboard integrated updating.
+   * <p>
+   * This runs after the mode specific periodic functions, but before LiveWindow
+   * and SmartDashboard integrated updating.
    */
   @Override
   public void robotPeriodic() {
@@ -103,14 +107,15 @@ public class Robot extends IterativeRobot {
 
   /**
    * This autonomous (along with the chooser code above) shows how to select
-   * between different autonomous modes using the dashboard. The sendable
-   * chooser code works with the Java SmartDashboard. If you prefer the
-   * LabVIEW Dashboard, remove all of the chooser code and uncomment the
-   * getString line to get the auto name from the text box below the Gyro
+   * between different autonomous modes using the dashboard. The sendable chooser
+   * code works with the Java SmartDashboard. If you prefer the LabVIEW Dashboard,
+   * remove all of the chooser code and uncomment the getString line to get the
+   * auto name from the text box below the Gyro
    *
-   * <p>You can add additional auto modes by adding additional comparisons to
-   * the switch structure below with additional strings. If using the
-   * SendableChooser make sure to add them to the chooser code above as well.
+   * <p>
+   * You can add additional auto modes by adding additional comparisons to the
+   * switch structure below with additional strings. If using the SendableChooser
+   * make sure to add them to the chooser code above as well.
    */
   @Override
   public void autonomousInit() {
@@ -125,63 +130,70 @@ public class Robot extends IterativeRobot {
    */
   @Override
   public void autonomousPeriodic() {
-    
-    flyWheel.setFlyWheelSpeed(SmartDashboard.getNumber("flywheel_target", 5000));//Arbitrary large number
-    if(driverController.getRawButton(4)){
+
+    flyWheel.setFlyWheelSpeed(SmartDashboard.getNumber("flywheel_target", 5000));// Arbitrary large number
+    if (driverController.getRawButton(4)) {
       startTime = -1.0;
-    }else if(startTime == -1.0){
+    } else if (startTime == -1.0) {
       startTime = Timer.getFPGATimestamp();
-    }else if(Timer.getFPGATimestamp() - startTime > 5){
+    } else if (Timer.getFPGATimestamp() - startTime > 5) {
       flyWheel.aFF = flyWheel.aFF + 0.1;
       startTime = Timer.getFPGATimestamp();
     }
 
-    
-    
-    
     /*
-    switch (m_autoSelected) {
-      case kCustomAuto:
-        // Put custom auto code here
-        break;
-      case kDefaultAuto:
-      default:
-        // Put default auto code here
-        break;
-    }*/
+     * switch (m_autoSelected) { case kCustomAuto: // Put custom auto code here
+     * break; case kDefaultAuto: default: // Put default auto code here break; }
+     */
   }
 
   @Override
   public void teleopInit() {
-    
+
   }
+
+  private boolean lastAButton = false;
+  private double power = 1.0;
+
   /**
    * This function is called periodically during operator control.
    */
   @Override
   public void teleopPeriodic() {
-    if(joystick1.getRawButton(1)){
-      flyWheel.setFlyWheelSpeed(SmartDashboard.getNumber("flywheel_target", flyWheelTarget));
-      flyWheel.flyWheelRight.set(ControlMode.PercentOutput, 0.5);
-      //flyWheel.setFlyWheelShooterPower(1);
-      
-      
-      //flyWheel.setFlyWheelShooterPower(joystick1.getRawAxis(3));
+    if (joystick1.getRawButton(1)) {
+      if (!lastAButton) {
+        logger.logEvent("ShooterTest", String.format("Starting shooter at %f percent output", power));
+      }
+
+      // flyWheel.setFlyWheelSpeed(SmartDashboard.getNumber("flywheel_target",
+      // flyWheelTarget));
+      flyWheel.flyWheelRight.set(ControlMode.PercentOutput, power);
+      flyWheel.flyWheelLeft.set(ControlMode.PercentOutput, power);
+      logger.logDoubles("ShooterTest", Timer.getFPGATimestamp(),
+          (double) flyWheel.flyWheelLeft.getSelectedSensorVelocity()
+              * (FlyWheelShooter.GEARING / FlyWheelShooter.RPM_TO_CP100MS),
+          (double) flyWheel.flyWheelRight.getSelectedSensorVelocity()
+              * (FlyWheelShooter.GEARING / FlyWheelShooter.RPM_TO_CP100MS));
+
+      lastAButton = true;
+
+      // flyWheel.setFlyWheelShooterPower(joystick1.getRawAxis(3));
       flyWheel.updateTelemetry();
-    }else{
+    } else {
       flyWheel.setFlyWheelShooterPower(0);
+      lastAButton = false;
     }
-    //SmartDashboard.putNumber("Fly wheel error", (flyWheel.flyWheelLeft.getClosedLoopError(0))/3860.);
-    
-    //SmartDashboard.putNumber("Current", powerDistributionPanel.getCurrent(12));
+    // SmartDashboard.putNumber("Fly wheel error",
+    // (flyWheel.flyWheelLeft.getClosedLoopError(0))/3860.);
+
+    // SmartDashboard.putNumber("Current", powerDistributionPanel.getCurrent(12));
     // SmartDashboard.putNumber("Voltage", powerDistributionPanel.getVoltage());
-    //SmartDashboard.putNumber("Fly wheel distOff", flyWheel.flyWheelLeft.getSensorCollection().
-    //getIntegratedSensorVelocity() / 2048 * 600 * 30 / 44 * -1);
+    // SmartDashboard.putNumber("Fly wheel distOff",
+    // flyWheel.flyWheelLeft.getSensorCollection().
+    // getIntegratedSensorVelocity() / 2048 * 600 * 30 / 44 * -1);
     /*
-    if(joystick1.getRawButtonPressed(2)){
-      flyWheel.updateShooterPIDF();
-    }
-    */
+     * if(joystick1.getRawButtonPressed(2)){ flyWheel.updateShooterPIDF(); }
+     */
     if (Timer.getFPGATimestamp() - prev_pidf_update > 0.1) {
       prev_pidf_update = Timer.getFPGATimestamp();
       flyWheel.updateShooterPIDF();
@@ -192,27 +204,33 @@ public class Robot extends IterativeRobot {
     System.out.println();
 
     double turn = driverController.getRawAxis(4);
-
     double fwd = -driverController.getRawAxis(1);
     motorFrontLeft.set(fwd + turn);
     motorBackLeft.set(fwd + turn);
     motorBackRight.set(fwd - turn);
     motorFrontLeft.set(fwd - turn);
 
-    logger.logDoubles("ShooterTest", Timer.getFPGATimestamp(), (double)flyWheel.flyWheelLeft.getSelectedSensorVelocity()*(flyWheel.GEARING/flyWheel.RPM_TO_CP100MS), (double)flyWheel.flyWheelRight.getSelectedSensorVelocity()*(flyWheel.GEARING/flyWheel.RPM_TO_CP100MS));
-
+    // *Hopefully* Logs the speed of the shooter wheels/motors and logs when the
+    // triggering button is pressed and released
+    logger.logDoubles("ShooterSpeedFromPower"+Double.toString(SmartDashboard.getNumber("Shooter Power", 0.0)), Timer.getFPGATimestamp(),
+        ((double) flyWheel.flyWheelLeft.getSelectedSensorVelocity()) * (GEARING / RPM_TO_CP100MS),
+        ((double) flyWheel.flyWheelRight.getSelectedSensorVelocity()) * (GEARING / RPM_TO_CP100MS));
+    
     if(joystick1.getRawButtonPressed(2)){
-      flyWheel.setFlyWheelShooterPower(SmartDashboard.getNumber("Shooter Power", 0.0));
-      logger.logEvent("ShooterTest", "Shooter Power set to" + Double.toString(SmartDashboard.getNumber("Shooter Power", 0.0)));
+      logger.logEvent("ShooterSpeedFromPower"+Double.toString(SmartDashboard.getNumber("Shooter Power", 0.0)), "Shooter Power set to" + Double.toString(SmartDashboard.getNumber("Shooter Power", 0.0)));
     }
     if(joystick1.getRawButtonReleased(2)){
-      logger.logEvent("Shooter Power", "End Shoot; Button Released");
+      logger.logEvent("ShooterSpeedFromPower"+Double.toString(SmartDashboard.getNumber("Shooter Power", 0.0)), "End Shoot; Button Released");
+    }
+    if(joystick1.getRawButton(2)){
+      flyWheel.setFlyWheelShooterPower(SmartDashboard.getNumber("Shooter Power", 0.0));
     }
   }
 
   @Override
   public void disabledInit(){
     logger.flush("ShooterTest");
+    logger.flush("ShooterSpeedFromPower"+Double.toString(SmartDashboard.getNumber("Shooter Power", 0.0)));
   }
 
   /**

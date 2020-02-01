@@ -88,7 +88,7 @@ public class Logger {
     private void flushBuffer(Buffer buf) {
         FileWriter fw = null;
         try {
-            fw = new FileWriter(new File(LOG_FILE_DIR + buf.filename));
+            fw = new FileWriter(new File(LOG_FILE_DIR + buf.filename), true);
         } catch (IOException e) {
             e.printStackTrace();
         }

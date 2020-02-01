@@ -118,9 +118,6 @@ public class FlyWheelShooter extends Subsystem {
   }
 
   public void setFlyWheelSpeed(double speed){
-    //speed is feet per second
-    //Watch floting point division, this conversion was returning 0 because you had int/int
-    //double convertedSpeed =  speed * (1./10) * 12 * (1./4 * Math.PI) * 4096;
     currentSetpoint = speed;
     double convertedSpeed = speed * RPM_TO_CP100MS / GEARING;
     flyWheelLeft.set(TalonFXControlMode.Velocity, convertedSpeed, DemandType.ArbitraryFeedForward, aFF);

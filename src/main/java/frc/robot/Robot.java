@@ -12,19 +12,23 @@ import static frc.robot.FlyWheelShooter.RPM_TO_CP100MS;
 
 import com.ctre.phoenix.motorcontrol.ControlMode;
 import com.ctre.phoenix.motorcontrol.can.TalonFX;
+import com.revrobotics.ColorSensorV3;
 
 import edu.wpi.first.networktables.NetworkTable;
 import edu.wpi.first.networktables.NetworkTableEntry;
 import edu.wpi.first.networktables.NetworkTableInstance;
+import edu.wpi.first.wpilibj.DriverStation;
 import edu.wpi.first.wpilibj.IterativeRobot;
 import edu.wpi.first.wpilibj.Joystick;
 import edu.wpi.first.wpilibj.PowerDistributionPanel;
+import edu.wpi.first.wpilibj.RobotController;
 import edu.wpi.first.wpilibj.Talon;
 import edu.wpi.first.wpilibj.Timer;
 import edu.wpi.first.wpilibj.smartdashboard.SendableChooser;
 import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 import frc.util.Logger;
-
+import edu.wpi.first.wpilibj.I2C;
+import edu.wpi.first.wpilibj.util.Color;
 /**
  * The VM is configured to automatically run this class, and to call the
  * functions corresponding to each mode, as described in the IterativeRobot
@@ -37,6 +41,7 @@ public class Robot extends IterativeRobot {
   private static final String kCustomAuto = "My Auto";
   private String m_autoSelected;
   private final SendableChooser<String> m_chooser = new SendableChooser<>();
+  private final ColorSensorV3 colorSensor = new ColorSensorV3(I2C.Port.kOnboard);
 
   double startTime = -1.0;
 
@@ -54,6 +59,10 @@ public class Robot extends IterativeRobot {
 
   double flyWheelTarget = 2700;
   double prev_pidf_update = 0;
+
+  String logname;
+  String shooterpower;
+  Timer timer;
 
   /**
    * This function is run when the robot is first started up and should be used
@@ -86,8 +95,13 @@ public class Robot extends IterativeRobot {
 
     SmartDashboard.putNumber("flywheel_target", flyWheelTarget);
 
+    shooterpower = Double.toString(SmartDashboard.getNumber("Shooter Power", 0.0)); 
+
+    logname = "ShooterTest";
+    timer = new Timer();
+
     logger.createLogStream("ShooterTest");
-    logger.createLogStream("ShooterSpeedFromPower"+Double.toString(SmartDashboard.getNumber("Shooter Power", 0.0)));
+    logger.createLogStream(logname);
 
     SmartDashboard.putNumber("Shooter Power", 0.8);
   }
@@ -149,7 +163,8 @@ public class Robot extends IterativeRobot {
 
   @Override
   public void teleopInit() {
-
+    logger.logEvent(logname, "Battery Voltage="+Double.toString(RobotController.getBatteryVoltage()));
+    timer.reset();
   }
 
   private boolean lastAButton = false;
@@ -162,18 +177,17 @@ public class Robot extends IterativeRobot {
   public void teleopPeriodic() {
     if (joystick1.getRawButton(1)) {
       if (!lastAButton) {
-        logger.logEvent("ShooterTest", String.format("Starting shooter at %f percent output", power));
+        power = SmartDashboard.getNumber("Shooter Power", 0.0);
+        //logger.logEvent("ShooterTest", String.format("Starting shooter at %f percent output", power));
       }
 
       // flyWheel.setFlyWheelSpeed(SmartDashboard.getNumber("flywheel_target",
       // flyWheelTarget));
       flyWheel.flyWheelRight.set(ControlMode.PercentOutput, power);
       flyWheel.flyWheelLeft.set(ControlMode.PercentOutput, power);
-      logger.logDoubles("ShooterTest", Timer.getFPGATimestamp(),
-          (double) flyWheel.flyWheelLeft.getSelectedSensorVelocity()
-              * (FlyWheelShooter.GEARING / FlyWheelShooter.RPM_TO_CP100MS),
-          (double) flyWheel.flyWheelRight.getSelectedSensorVelocity()
-              * (FlyWheelShooter.GEARING / FlyWheelShooter.RPM_TO_CP100MS));
+      /*logger.logDoubles("ShooterTest", Timer.getFPGATimestamp(),
+          (double) flyWheel.flyWheelLeft.getSelectedSensorVelocity(),
+          (double) flyWheel.flyWheelRight.getSelectedSensorVelocity());*/
 
       lastAButton = true;
 
@@ -182,6 +196,15 @@ public class Robot extends IterativeRobot {
     } else {
       flyWheel.setFlyWheelShooterPower(0);
       lastAButton = false;
+
+      Color detectedColor = colorSensor.getColor();
+
+      double IR = colorSensor.getIR();
+
+      SmartDashboard.putNumber("Red", detectedColor.red);
+      SmartDashboard.putNumber("Green", detectedColor.green);
+      SmartDashboard.putNumber("Blue", detectedColor.blue);
+      SmartDashboard.putNumber("IR", IR);
     }
     // SmartDashboard.putNumber("Fly wheel error",
     // (flyWheel.flyWheelLeft.getClosedLoopError(0))/3860.);
@@ -212,17 +235,24 @@ public class Robot extends IterativeRobot {
 
     // *Hopefully* Logs the speed of the shooter wheels/motors and logs when the
     // triggering button is pressed and released
-    logger.logDoubles("ShooterSpeedFromPower"+Double.toString(SmartDashboard.getNumber("Shooter Power", 0.0)), Timer.getFPGATimestamp(),
+    logger.logDoubles(logname, Timer.getFPGATimestamp(),
         ((double) flyWheel.flyWheelLeft.getSelectedSensorVelocity()) * (GEARING / RPM_TO_CP100MS),
         ((double) flyWheel.flyWheelRight.getSelectedSensorVelocity()) * (GEARING / RPM_TO_CP100MS));
     
-    if(joystick1.getRawButtonPressed(2)){
-      logger.logEvent("ShooterSpeedFromPower"+Double.toString(SmartDashboard.getNumber("Shooter Power", 0.0)), "Shooter Power set to" + Double.toString(SmartDashboard.getNumber("Shooter Power", 0.0)));
+    //logs what power it is setting to when the B button is first pressed
+    // CHANGED
+    if(joystick1.getRawButtonPressed(1)){
+      //shooterpower = SmartDashboard.getNumber("Shooter Power", 0.0); 
+      logger.logEvent(logname, "Shooter Power set to " + power);
     }
-    if(joystick1.getRawButtonReleased(2)){
-      logger.logEvent("ShooterSpeedFromPower"+Double.toString(SmartDashboard.getNumber("Shooter Power", 0.0)), "End Shoot; Button Released");
+    //logs when the button is released
+    // CHANGED
+    if(joystick1.getRawButtonReleased(1)){
+      logger.logEvent(logname, "End Shoot at "+ power);
     }
+    //sets the power to the value on the smart dashboard
     if(joystick1.getRawButton(2)){
+      power = SmartDashboard.getNumber("Shooter Power", 0.0);
       flyWheel.setFlyWheelShooterPower(SmartDashboard.getNumber("Shooter Power", 0.0));
     }
   }
@@ -230,7 +260,7 @@ public class Robot extends IterativeRobot {
   @Override
   public void disabledInit(){
     logger.flush("ShooterTest");
-    logger.flush("ShooterSpeedFromPower"+Double.toString(SmartDashboard.getNumber("Shooter Power", 0.0)));
+    logger.flush(logname);
   }
 
   /**
@@ -239,4 +269,5 @@ public class Robot extends IterativeRobot {
   @Override
   public void testPeriodic() {
   }
+
 }
